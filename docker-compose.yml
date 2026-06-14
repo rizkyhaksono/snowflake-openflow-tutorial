@@ -1,0 +1,133 @@
+# Lab belajar Snowflake Openflow via Apache NiFi (engine open-source di balik Openflow).
+# Stack "data lake": NiFi + NiFi Registry + PostgreSQL + MinIO (S3-compatible).
+# Lihat README.md dan docs/ untuk tutorial langkah demi langkah.
+
+services:
+  # ----------------------------------------------------------------------------
+  # NiFi = "runtime" Openflow. Canvas + engine tempat kita merancang & menjalankan flow.
+  # ----------------------------------------------------------------------------
+  nifi:
+    image: apache/nifi:2.9.0
+    container_name: nifi
+    ports:
+      - "8443:8443"            # UI HTTPS (self-signed cert -> warning browser itu normal)
+    environment:
+      SINGLE_USER_CREDENTIALS_USERNAME: ${NIFI_USER}
+      SINGLE_USER_CREDENTIALS_PASSWORD: ${NIFI_PASSWORD}   # minimal 12 karakter
+      NIFI_WEB_HTTPS_PORT: 8443
+      NIFI_WEB_PROXY_HOST: localhost:8443
+      NIFI_JVM_HEAP_INIT: 1g
+      NIFI_JVM_HEAP_MAX: 2g
+    volumes:
+      # Volume bernama -> flow & state TIDAK hilang saat restart.
+      # (Definisi flow tersimpan di conf/flow.json.gz, jadi conf wajib dipersist.)
+      - nifi_conf:/opt/nifi/nifi-current/conf
+      - nifi_state:/opt/nifi/nifi-current/state
+      - nifi_db:/opt/nifi/nifi-current/database_repository
+      - nifi_flowfile:/opt/nifi/nifi-current/flowfile_repository
+      - nifi_content:/opt/nifi/nifi-current/content_repository
+      - nifi_provenance:/opt/nifi/nifi-current/provenance_repository
+      - nifi_logs:/opt/nifi/nifi-current/logs
+      # Bind mount: driver JDBC & sample data dari host.
+      - ./drivers:/opt/nifi/drivers:ro
+      - ./data:/data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8443' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 90s        # NiFi butuh ~1-2 menit untuk boot pertama kali
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [openflowlab]
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # NiFi Registry = versioning flow (analogi versioning flow di Openflow).
+  # ----------------------------------------------------------------------------
+  nifi-registry:
+    image: apache/nifi-registry:2.9.0
+    container_name: nifi-registry
+    ports:
+      - "18080:18080"
+    volumes:
+      - registry_db:/opt/nifi-registry/nifi-registry-current/database
+      - registry_flow:/opt/nifi-registry/nifi-registry-current/flow_storage
+    networks: [openflowlab]
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # PostgreSQL = database sumber/sink relational.
+  # Skrip di init/postgres/ dijalankan otomatis saat volume pertama kali dibuat.
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [openflowlab]
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # MinIO = object storage S3-compatible = "data lake" / S3 sink di dunia Openflow.
+  # ----------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"            # S3 API endpoint (dipakai PutS3Object di NiFi)
+      - "9001:9001"            # Console web
+    volumes:
+      - minio_data:/data
+    networks: [openflowlab]
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------------
+  # Init container sekali jalan: membuat bucket "raw" dan "curated", lalu exit.
+  # ----------------------------------------------------------------------------
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on: [minio]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    entrypoint: ["/bin/sh", "/scripts/create-buckets.sh"]
+    volumes:
+      - ./init/minio:/scripts:ro
+    networks: [openflowlab]
+    restart: "no"
+
+volumes:
+  nifi_conf:
+  nifi_state:
+  nifi_db:
+  nifi_flowfile:
+  nifi_content:
+  nifi_provenance:
+  nifi_logs:
+  pg_data:
+  minio_data:
+  registry_db:
+  registry_flow:
+
+networks:
+  openflowlab:
+    driver: bridge

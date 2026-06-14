@@ -1,0 +1,10 @@
+# Driver JDBC diunduh via `make drivers` — tidak perlu di-commit.
+drivers/*.jar
+
+# Output lokal / scratch
+*.log
+.DS_Store
+
+# Catatan: .env SENGAJA di-commit untuk lab ini (kredensial dummy lokal).
+# Di proyek nyata, hapus baris di bawah ini agar .env tidak ikut ter-commit:
+.env

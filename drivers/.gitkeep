@@ -1,0 +1,2 @@
+# Folder ini menampung driver JDBC yang di-mount ke NiFi (/opt/nifi/drivers).
+# Jalankan `make drivers` untuk mengunduh postgresql-*.jar ke sini.
