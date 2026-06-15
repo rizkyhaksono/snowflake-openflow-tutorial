@@ -8,15 +8,28 @@ kredensial dari hardcode ke **Parameter Context**. Dua hal ini adalah praktik wa
 revert versi, serta parameterisasi kredensial dengan `#{...}`.
 
 > Prasyarat: sudah punya Process Group `lab-mlops` berisi flow Lab 1/2. NiFi Registry jalan di
-> http://localhost:18080/nifi-registry.
+> http://localhost:18081/nifi-registry.
+>
+> ⚠️ **Kalau Registry tidak bisa dibuka (`ERR_EMPTY_RESPONSE`):** container-nya crash-loop karena izin
+> tulis. Pastikan service `nifi-registry` di `docker-compose.yml` **tanpa named volume** untuk
+> `database`/`flow_storage` (named volume owner root vs proses nifi uid 1000 →
+> `AccessDeniedException`). Setelah dibetulkan: `sudo docker compose up -d nifi-registry`, tunggu ~60 detik.
+> Konsekuensi tanpa volume: data registry hilang saat `docker compose down` (cukup untuk lab ini).
 
 ---
 
 ## Bagian A — Versioning dengan NiFi Registry
 
+> ℹ️ **Anda akan melihat banner oranye "Apache NiFi Registry has been deprecated..." di UI Registry.**
+> Itu **normal, bukan error**. NiFi Registry (server terpisah) memang dipensiunkan dan akan dihapus di
+> NiFi 3.0, karena NiFi 2.x kini bisa versioning flow **langsung ke Git** (mis.
+> `GitHubFlowRegistryClient`) tanpa server Registry terpisah. Untuk belajar **konsep** versioning,
+> Registry ini masih berfungsi penuh. Di dunia nyata/ke depan, pakai Git-based registry; di Snowflake
+> Openflow, versioning sudah bawaan/managed.
+
 ### A1. Buat bucket di Registry
 
-1. Buka **NiFi Registry**: http://localhost:18080/nifi-registry.
+1. Buka **NiFi Registry**: http://localhost:18081/nifi-registry.
 2. Pojok kanan atas → ikon **gear/Settings** → tab **Buckets** → **New Bucket**.
 3. Nama: `mlops-flows` → **Create**.
 
@@ -47,8 +60,12 @@ revert versi, serta parameterisasi kredensial dengan `#{...}`.
 
 ### A4. Buat perubahan → lihat versi bertambah
 
-1. Ubah sesuatu (mis. ganti `Object Key` di PutS3Object). Badge berubah jadi ● (ada perubahan lokal
-   belum di-commit).
+1. Buat perubahan apa saja. Badge Process Group berubah dari ✓ jadi ● (ada perubahan lokal belum di-commit).
+   - **Termudah (tanpa stop):** cukup **geser posisi** salah satu processor di kanvas — itu sudah
+     terhitung perubahan flow.
+   - **Mengedit properti:** processor yang sedang **Running tidak bisa diedit** (dialognya jadi
+     "Processor Details" read-only). **Stop dulu** processor (klik kanan → Stop), baru double-click →
+     "Edit Processor" → ubah mis. `Object Key` → Apply → (Start lagi bila perlu).
 2. Klik kanan Process Group → **Version** → **Commit local changes**, tulis komentar → **Save**.
    Versi naik ke 2.
 3. Coba **Version** → **Change version** untuk kembali ke versi 1 (revert) — lalu maju lagi ke 2.

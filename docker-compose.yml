@@ -28,9 +28,12 @@ services:
       - nifi_content:/opt/nifi/nifi-current/content_repository
       - nifi_provenance:/opt/nifi/nifi-current/provenance_repository
       - nifi_logs:/opt/nifi/nifi-current/logs
-      # Bind mount: driver JDBC & sample data dari host.
+      # Bind mount: driver JDBC (read-only) & sample data dari host.
       - ./drivers:/opt/nifi/drivers:ro
-      - ./data:/data:ro
+      # /data harus writable: processor GetFile MEWAJIBKAN direktori input bisa
+      # ditulis (validasi internal), walau Keep Source File = true. File CSV tetap
+      # aman karena Keep Source File = true membuat GetFile tidak menghapusnya.
+      - ./data:/data
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8443' || exit 1"]
       interval: 15s
@@ -50,10 +53,13 @@ services:
     image: apache/nifi-registry:2.9.0
     container_name: nifi-registry
     ports:
-      - "18080:18080"
-    volumes:
-      - registry_db:/opt/nifi-registry/nifi-registry-current/database
-      - registry_flow:/opt/nifi-registry/nifi-registry-current/flow_storage
+      - "18081:18080"   # host 18081 -> container 18080 (18080 host sudah dipakai service lain)
+    # CATATAN: TANPA named volume untuk database/flow_storage. Named volume dibuat
+    # Docker dengan owner root, sedangkan registry jalan sebagai user nifi (uid 1000),
+    # sehingga AccessDeniedException saat membuat H2 DB -> container crash-loop.
+    # Tanpa mount, registry menulis ke filesystem container (owner sudah benar).
+    # Konsekuensi: data registry (bucket & versi flow) hilang saat `docker compose down`
+    # (tetap bertahan saat restart). Untuk lab ini cukup. Cara persist permanen ada di README.
     networks: [openflowlab]
     restart: unless-stopped
 
@@ -69,7 +75,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "15432:5432"   # host 15432 -> container 5432 (5432 host sudah dipakai Postgres lain)
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./init/postgres:/docker-entrypoint-initdb.d:ro
@@ -92,8 +98,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "9000:9000"            # S3 API endpoint (dipakai PutS3Object di NiFi)
-      - "9001:9001"            # Console web
+      - "19000:9000"           # host 19000 -> container 9000 (S3 API). Antar-container tetap pakai minio:9000
+      - "19001:9001"           # host 19001 -> container 9001 (Console web)
     volumes:
       - minio_data:/data
     networks: [openflowlab]
@@ -125,8 +131,6 @@ volumes:
   nifi_logs:
   pg_data:
   minio_data:
-  registry_db:
-  registry_flow:
 
 networks:
   openflowlab:

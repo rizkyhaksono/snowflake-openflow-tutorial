@@ -76,8 +76,15 @@ Controller service = komponen bersama. Kita buat sekali, dipakai banyak processo
    | File Filter | `sample_transactions.csv` |
    | Keep Source File | `true` |
 
-   > `Keep Source File = true` penting karena `/data` di-mount **read-only** — tanpa ini GetFile akan
-   > gagal saat mencoba menghapus file sumber.
+   > `Keep Source File = true` membuat GetFile **tidak menghapus** file CSV sumber setelah membacanya,
+   > jadi `sample_transactions.csv` tetap ada di repo Anda.
+   >
+   > ⚠️ **Catatan penting:** GetFile mewajibkan direktori input **bisa ditulis (writable)**, bukan cuma
+   > dibaca — ini validasi internal processor. Karena itu di `docker-compose.yml`, `/data` di-mount
+   > **read-write** (tanpa `:ro`). Kalau Anda melihat error
+   > `Directory '/data' does not have sufficient permissions (not writable and readable)`, artinya
+   > mount masih read-only — pastikan baris `- ./data:/data` (bukan `:ro`) lalu jalankan ulang
+   > `sudo docker compose up -d nifi`.
 
 3. Tab **Relationships**: GetFile hanya punya `success` (otomatis). **Apply**.
 
@@ -145,6 +152,9 @@ jual Openflow.
 
 ## Troubleshooting
 
+- **GetFile error `Directory '/data' does not have sufficient permissions`** → mount `/data` masih
+  read-only. Di `docker-compose.yml` gunakan `- ./data:/data` (tanpa `:ro`), lalu
+  `sudo docker compose up -d nifi` untuk menerapkannya (flow Anda aman, tersimpan di volume).
 - **GetFile error "Unable to delete"** → pastikan `Keep Source File = true`.
 - **PutDatabaseRecord `failure` + error driver** → cek `Database Driver Location(s)` menunjuk file jar
   yang benar; pastikan `make drivers` sudah mengunduhnya (`ls drivers/`).

@@ -59,9 +59,9 @@ proses training.
 | Service | Image | URL / Port | Peran (analogi Openflow) |
 |---|---|---|---|
 | **NiFi** | `apache/nifi:2.9.0` | https://localhost:8443/nifi | Canvas + engine = **runtime Openflow** |
-| **NiFi Registry** | `apache/nifi-registry:2.9.0` | http://localhost:18080/nifi-registry | Versioning flow |
-| **PostgreSQL** | `postgres:16` | localhost:5432 | DB sumber/sink relational |
-| **MinIO** | `minio/minio` | http://localhost:9001 (console), :9000 (S3 API) | Data lake / S3 sink |
+| **NiFi Registry** | `apache/nifi-registry:2.9.0` | http://localhost:18081/nifi-registry | Versioning flow |
+| **PostgreSQL** | `postgres:16` | localhost:15432 | DB sumber/sink relational |
+| **MinIO** | `minio/minio` | http://localhost:19001 (console), :19000 (S3 API) | Data lake / S3 sink |
 
 Kredensial ada di [.env](.env) (dummy, hanya untuk lab lokal).
 
@@ -106,8 +106,8 @@ docker compose up -d
 Lalu buka:
 - **NiFi**: https://localhost:8443/nifi — login `admin` / `openflowlab2026` (lihat `.env`).
   Sertifikat self-signed → klik "lanjutkan/terima risiko" di browser, itu normal.
-- **NiFi Registry**: http://localhost:18080/nifi-registry
-- **MinIO Console**: http://localhost:9001 — login `minioadmin` / `minioadmin123`.
+- **NiFi Registry**: http://localhost:18081/nifi-registry
+- **MinIO Console**: http://localhost:19001 — login `minioadmin` / `minioadmin123`.
 
 ---
 
@@ -139,7 +139,7 @@ Cek data hasil lab:
 make psql
 mlops=# SELECT count(*), max(transaction_id) FROM raw.transactions;
 
-# Objek di data lake (hasil Lab 2) — via MinIO Console http://localhost:9001 (bucket "curated")
+# Objek di data lake (hasil Lab 2) — via MinIO Console http://localhost:19001 (bucket "curated")
 ```
 
 ---

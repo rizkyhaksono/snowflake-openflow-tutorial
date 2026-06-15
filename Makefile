@@ -53,7 +53,7 @@ psql:
 
 urls:
 	@echo "NiFi (canvas):   https://localhost:8443/nifi    (login lihat .env)"
-	@echo "NiFi Registry:   http://localhost:18080/nifi-registry"
-	@echo "MinIO Console:   http://localhost:9001          (login lihat .env)"
-	@echo "MinIO S3 API:    http://localhost:9000"
-	@echo "PostgreSQL:      localhost:5432"
+	@echo "NiFi Registry:   http://localhost:18081/nifi-registry"
+	@echo "MinIO Console:   http://localhost:19001         (login lihat .env)"
+	@echo "MinIO S3 API:    http://localhost:19000"
+	@echo "PostgreSQL:      localhost:15432"
